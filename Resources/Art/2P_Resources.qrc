@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="Buttons" >
+    <file>LED On.bmp</file>
+    <file>2PIcon.bmp</file>
+    <file>ArrowDown.bmp</file>
+    <file>ArrowLeft.bmp</file>
+    <file>ArrowRight.bmp</file>
+    <file>ArrowUp.bmp</file>
+    <file>LED Off.bmp</file>
+  </qresource>
+</RCC>
