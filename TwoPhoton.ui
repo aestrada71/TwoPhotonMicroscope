@@ -43,7 +43,7 @@
      </font>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>4</number>
     </property>
     <widget class="QWidget" name="scanSetupTab">
      <attribute name="title">
@@ -249,13 +249,13 @@ p, li { white-space: pre-wrap; }
                 <string> Hz</string>
                </property>
                <property name="maximum">
-                <double>450000.000000000000000</double>
+                <double>500000.000000000000000</double>
                </property>
                <property name="singleStep">
                 <double>1000.000000000000000</double>
                </property>
                <property name="value">
-                <double>400000.000000000000000</double>
+                <double>450000.000000000000000</double>
                </property>
               </widget>
              </item>
@@ -2107,7 +2107,7 @@ p, li { white-space: pre-wrap; }
     </widget>
     <widget class="QWidget" name="aOMSetupTab">
      <attribute name="title">
-      <string>AOM Setup</string>
+      <string>EOM Setup</string>
      </attribute>
      <layout class="QGridLayout">
       <property name="margin">
@@ -2278,7 +2278,7 @@ p, li { white-space: pre-wrap; }
            <number>5000</number>
           </property>
           <property name="value">
-           <number>5</number>
+           <number>20</number>
           </property>
          </widget>
         </item>
@@ -2395,7 +2395,7 @@ p, li { white-space: pre-wrap; }
            <number>999999999</number>
           </property>
           <property name="value">
-           <number>1000</number>
+           <number>5000</number>
           </property>
          </widget>
         </item>
@@ -2431,7 +2431,7 @@ p, li { white-space: pre-wrap; }
            <double>10.000000000000000</double>
           </property>
           <property name="value">
-           <double>-0.400000000000000</double>
+           <double>2.000000000000000</double>
           </property>
          </widget>
         </item>
@@ -3007,7 +3007,7 @@ p, li { white-space: pre-wrap; }
             <item>
              <widget class="QLabel" name="label_51">
               <property name="text">
-               <string>Aom Top</string>
+               <string>EOM Top</string>
               </property>
              </widget>
             </item>
@@ -3019,6 +3019,9 @@ p, li { white-space: pre-wrap; }
               <property name="suffix">
                <string> V</string>
               </property>
+              <property name="decimals">
+               <number>3</number>
+              </property>
               <property name="minimum">
                <double>-10.000000000000000</double>
               </property>
@@ -3026,14 +3029,14 @@ p, li { white-space: pre-wrap; }
                <double>10.000000000000000</double>
               </property>
               <property name="value">
-               <double>0.300000000000000</double>
+               <double>0.200000000000000</double>
               </property>
              </widget>
             </item>
             <item>
              <widget class="QLabel" name="label_54">
               <property name="text">
-               <string>Aom Bottom</string>
+               <string>EOM Bottom</string>
               </property>
              </widget>
             </item>
@@ -3045,6 +3048,9 @@ p, li { white-space: pre-wrap; }
               <property name="suffix">
                <string> V</string>
               </property>
+              <property name="decimals">
+               <number>3</number>
+              </property>
               <property name="minimum">
                <double>-10.000000000000000</double>
               </property>
@@ -3052,7 +3058,7 @@ p, li { white-space: pre-wrap; }
                <double>10.000000000000000</double>
               </property>
               <property name="value">
-               <double>2.300000000000000</double>
+               <double>0.700000000000000</double>
               </property>
              </widget>
             </item>
@@ -4118,7 +4124,7 @@ p, li { white-space: pre-wrap; }
             <double>100.989999999999995</double>
            </property>
            <property name="value">
-            <double>40.000000000000000</double>
+            <double>50.000000000000000</double>
            </property>
           </widget>
          </item>
@@ -4643,10 +4649,10 @@ p, li { white-space: pre-wrap; }
           <set>Qt::AlignHCenter</set>
          </property>
          <property name="maximum">
-          <number>2048</number>
+          <number>2047</number>
          </property>
          <property name="value">
-          <number>256</number>
+          <number>200</number>
          </property>
         </widget>
        </item>
@@ -4691,7 +4697,7 @@ p, li { white-space: pre-wrap; }
           <number>200000</number>
          </property>
          <property name="value">
-          <number>1024</number>
+          <number>4096</number>
          </property>
         </widget>
        </item>
@@ -4807,7 +4813,7 @@ p, li { white-space: pre-wrap; }
         </font>
        </property>
        <property name="text">
-        <string>AOM Status</string>
+        <string>EOM Status</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -4852,7 +4858,7 @@ p, li { white-space: pre-wrap; }
         </font>
        </property>
        <property name="text">
-        <string>AOM Vol. Amp</string>
+        <string>EOM Vol. Amp</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
@@ -4878,14 +4884,20 @@ p, li { white-space: pre-wrap; }
        <property name="suffix">
         <string> V</string>
        </property>
+       <property name="decimals">
+        <number>3</number>
+       </property>
+       <property name="minimum">
+        <double>0.000000000000000</double>
+       </property>
        <property name="maximum">
-        <double>2.200000000000000</double>
+        <double>2.400000000000000</double>
        </property>
        <property name="singleStep">
-        <double>0.050000000000000</double>
+        <double>0.005000000000000</double>
        </property>
        <property name="value">
-        <double>0.300000000000000</double>
+        <double>0.400000000000000</double>
        </property>
       </widget>
      </item>
@@ -5630,7 +5642,7 @@ p, li { white-space: pre-wrap; }
            <number>2048</number>
           </property>
           <property name="value">
-           <number>128</number>
+           <number>256</number>
           </property>
          </widget>
         </item>
@@ -5675,7 +5687,7 @@ p, li { white-space: pre-wrap; }
            <number>2048</number>
           </property>
           <property name="value">
-           <number>128</number>
+           <number>256</number>
           </property>
          </widget>
         </item>
@@ -5793,7 +5805,7 @@ p, li { white-space: pre-wrap; }
      <x>0</x>
      <y>0</y>
      <width>992</width>
-     <height>23</height>
+     <height>22</height>
     </rect>
    </property>
    <property name="font">

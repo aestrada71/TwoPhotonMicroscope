@@ -210,9 +210,9 @@ void AcqThread::run()
 			numZSteps = 1;
 
 		//_____DAQmx DigOut Configure Code (Sample clock for Aout and Ain)____________________________________________
-		DAQmxErrChk (DAQmxCreateTask("SampleClockTask",&digTaskHandle));
-		DAQmxErrChk (DAQmxCreateCOPulseChanFreq (digTaskHandle, "/Dev1/ctr1", "SampleClock", DAQmx_Val_Hz, DAQmx_Val_Low,
-																	0.1, scanEng->getSamp_Rate(), 0.5));
+                DAQmxErrChk (DAQmxCreateTask("SampleClockTask",&digTaskHandle));
+                DAQmxErrChk (DAQmxCreateCOPulseChanFreq (digTaskHandle, "/Dev1/ctr1", "SampleClock", DAQmx_Val_Hz, DAQmx_Val_Low,
+                                0.1, scanEng->getSamp_Rate(), 0.5));
 		if (bLinescan)
 			DAQmxErrChk (DAQmxCfgImplicitTiming(digTaskHandle,DAQmx_Val_ContSamps ,scanEng->getNumSampsPerFrame_LS()))
 		else
@@ -270,13 +270,13 @@ void AcqThread::run()
 			}
 
 			 
-
+                        //_____Start DAQmx Read._____
+                        retVal = acqEng->startDAQmxTask();
 			//_____Start DAQmx write._____
 			retVal = scanEng->startDAQmxTask(); 
-			//_____Start DAQmx Read._____
-			retVal = acqEng->startDAQmxTask();
+
 			//_____Start DAQmx Trig._____
-			DAQmxErrChk (DAQmxStartTask(digTaskHandle)); 
+                        DAQmxErrChk (DAQmxStartTask(digTaskHandle));
 			//_____Perform read.  Execution will pause until all samps acquired._____
 			retVal = acqEng->readDAQmxTask(); 
 
@@ -368,7 +368,7 @@ void AcqThread::run()
 					
 			}
 		
-			DAQmxStopTask(digTaskHandle);
+                        DAQmxStopTask(digTaskHandle);
 			retVal = acqEng->stopDAQmxTask();
 			retVal = scanEng->stopDAQmxTask();
 			//retVal = scanEng->clearDAQmxTask();
@@ -695,27 +695,25 @@ int AcqThread::CalcNumZSteps()
 //Description: Updates 2p data structure: header info and data
 int AcqThread::Update2PDataStruct()
 {
-	//DataFile2P		*dataFile = data2P;
-	int				numValidXSamps;
-	int				numValidYSamps;
 
 	if (acqEng->getBLineScan())
 	{
-		numValidXSamps = (int)acqEng->getWidth();
-		numValidYSamps = (int)acqEng->getRepeats();
+                data2P->Header.setValidX((int)acqEng->getWidth());
+                data2P->Header.setValidY((int)acqEng->getRepeats());
+                data2P->Header.setNumX((int)acqEng->getTotSampsPerLine_LS());
+                data2P->Header.setNumY((int)acqEng->getTotLinesPerFrame_LS());
 	}
 	else
 	{
-		numValidXSamps = (int)acqEng->getnumValidXSamps();
-		numValidYSamps = (int)acqEng->getnumValidYSamps();
+                data2P->Header.setValidX((int)acqEng->getnumValidXSamps());
+                data2P->Header.setValidY((int)acqEng->getnumValidYSamps());
+                data2P->Header.setNumX((int)acqEng->getTotSampsPerLine());
+                data2P->Header.setNumY((int)acqEng->getTotLinesPerFrame());
 	}
 
 	data2P->Header.setVersion((float)Version_Number);
 	data2P->Header.setB3DAcq(acqEng->getB3DAcq());
-	data2P->Header.setNumX((int)acqEng->getTotSampsPerLine());
-	data2P->Header.setNumY((int)acqEng->getTotLinesPerFrame());
-	data2P->Header.setValidX(numValidXSamps);
-	data2P->Header.setValidY(numValidYSamps);
+
 	data2P->Header.setNumFrames((int)acqEng->getNumFrames());
 	data2P->Header.setMag(scanEng->getMag());
 	data2P->Header.setXMinV((float)scanEng->getXMinVolts());

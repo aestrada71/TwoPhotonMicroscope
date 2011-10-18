@@ -883,7 +883,7 @@ void TwoPhotonControl::AcqCallback(const QString & buttonName)
 	}
 
 	if(!bLineScan)
-		if(updateLineRateField()>2000)
+                if(updateLineRateField()>2000)
 		{
 			AddLogItem("ERROR: Scan rate too high");
 			emit sendMessageForPopup("Error","Scan rate cannot go above 2KHz\n");
@@ -891,10 +891,10 @@ void TwoPhotonControl::AcqCallback(const QString & buttonName)
 		}
 
 	if(bLineScan)
-		if(UpdateLineScanSpeed()>2000)
+                if(UpdateLineScanSpeed()>3000)
 		{
 			AddLogItem("ERROR: Scan rate too high");
-			emit sendMessageForPopup("Error","Scan rate cannot go above 2KHz\n");
+                        emit sendMessageForPopup("Error","Scan rate cannot go above 3KHz\n");
 			return;
 		}
 

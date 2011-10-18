@@ -5,7 +5,9 @@ include(C:\Qt\src\3rdparty\qwt-5.1.1\qwtconfig.pri)
 # Input
 
 HEADERS += TwoPhotonGui.h \
-		   TwoPhoton.h \
+                   NIDAQmx.h \
+                   nivision.h \
+                   TwoPhoton.h \
 		   scanengine.h \
 		   acqengine.h \
 		   2pData.h \
@@ -34,10 +36,11 @@ SOURCES += TwoPhoton.cpp \
 		   zStepDriver.cpp \
 		   TwoPhotonControl.cpp \
 		   Server.cpp \
+
 		   
 DEPENDPATH += .
-INCLUDEPATH += "C:\Program Files\National Instruments\NI-DAQ\DAQmx ANSI C Dev\include\NIDAQmx.h" \
-			   "C:\Program Files\National Instruments\Vision\Include\nivision.h" \
+INCLUDEPATH += "C:\Program Files\National Instruments\NI-DAQ\DAQmx ANSI C Dev\include\" \
+                           "C:\Program Files\National Instruments\Vision\Include\" \
                            "C:\Qt\src\3rdparty\qwt-5.1.1\src" \
                            "C:\wsc4c\APPS\wsc.h"\
                             ".\Libraries\RS232"
@@ -47,9 +50,9 @@ LIBS += "C:\Program Files\National Instruments\NI-DAQ\DAQmx ANSI C Dev\lib\msvc\
 		"C:\Qt\lib\QtNetwork4.lib" \
                 "C:\Qt\lib\qwt5.lib" \
                 "C:\Qt\lib\qwtd5.lib" \
-		"C:\Code\C++\Common_Libraries\RS232\cvirt.lib" \
-		"C:\Code\C++\Common_Libraries\RS232\cvisupp.lib" 
+                "C:\Arnold\ADE_Code_Dir\TwoPhotonGitRepo\Libraries\RS232\cvirt.lib" \
+                "C:\Arnold\ADE_Code_Dir\TwoPhotonGitRepo\Libraries\RS232\cvisupp.lib"
 
-RESOURCES = ".\Resources\Art\2P_Resources.qrc"
+RESOURCES =".\Resources\Art\2P_Resources.qrc"
 
 QT += network

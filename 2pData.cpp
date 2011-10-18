@@ -12,6 +12,7 @@
 */ 
 
 #include <time.h>
+#include <Windows.h>
 #include <string.h>
 #include "NIDAQmx.h"
 #include <direct.h>
@@ -29,7 +30,6 @@ const int			numBytesPerDatum = 2;		//short
 const unsigned char padding = 0x0;
 const char			suffix[] = ".dat";
 //const char		outputDir[] = "c:\\Data\\";
-const char			formatSpec[] = "%Y-%m-%d_%H_%M_%S";
 
 //_________________________________________________________________________________________________
 
@@ -91,29 +91,25 @@ int DataFile2P::CreateChanDir(int chanNum)
 		return 0;
 
 }
+// -Sep 1 2010: Added ms resolution to file name.  Simplified code to create name.  -ADE
 int DataFile2P::GenFileName(int chanNum)
 {
-	size_t		stMax = 100;				//Max String Size for time and date string
-	char		temp[100];
+        char		temp[120];
 	char		temp2[50];
 	char		temp3[10];
 	char		chanBuff[5];
-	time_t 		CurrTime=0;
-	struct tm * pCurrTimeStruct=0;
-	size_t		sizeOfTime;
+        SYSTEMTIME      st;                                   //Added for millisecond time in filenames
 	int			tempZPos;
 	
 	//Erase previous file name.
 	FileName[0] = '\0';
 
 	// Create name based off default dir and time and date.
-	CurrTime = time(&CurrTime);			   				//Get time
-	pCurrTimeStruct = localtime(&CurrTime);				//Convert to local.
-	//Place time and date string in temp
-	sizeOfTime = strftime(temp, stMax, formatSpec, pCurrTimeStruct);
+        GetLocalTime(&st);
+        sprintf(temp,"%04i-%02i-%02i_%02i_%02i_%02i_%03ims",st.wYear,st.wMonth,st.wDay,st.wHour,st.wMinute,st.wSecond,(int)(st.wMilliseconds));
 
-	sprintf(temp3, "_Chan_%d_" ,chanNum);
-	strcat(temp, temp3);
+        sprintf(temp3, "_Chan_%d" ,chanNum);
+        strcat(temp, temp3);
 
 	//Add zpos to filename if 3D Acq.
 	if (Header.getB3DAcq())
@@ -330,7 +326,7 @@ int DataFile2P::WriteTheData(int chanNum,AcqEngine* acqStruct)
 	{
 		for (long y = 0; y < Header.getValidY(); y++)
 		{
-			for(long x = acqStruct->getXOffset()+acqStruct->getOverscan(); x < Header.getValidX() + acqStruct->getXOffset() + acqStruct->getOverscan(); x++)		//CHANGE
+                        for(long x = acqStruct->getXOffset()+ overScan; x < Header.getValidX() + acqStruct->getXOffset() + overScan; x++)		//CHANGE
 			{
 				index = x + (Header.getNumX() * y) + (Header.getNumX() * Header.getNumY() * frameNum);
 				index += shiftToNextChannel;

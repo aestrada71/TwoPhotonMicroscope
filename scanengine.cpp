@@ -215,16 +215,16 @@ int ScanEngine::configDAQmxTask(bool bTriggered, bool bContinuous)
 		if (bContinuous)
 		{
 			if (bLineScan)
-				DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_ContSamps,numSampsPerFrame_LS))
+                                DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_ContSamps,numSampsPerFrame_LS))
 			else
-				DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_ContSamps,numSampsPerFrame));
+                                DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_ContSamps,numSampsPerFrame));
 		}
 		else
 		{	
 			if (bLineScan)
-				DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_FiniteSamps,numSampsTotal_LS))
+                                DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_FiniteSamps,numSampsTotal_LS))
 			else
-				DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_FiniteSamps,numSampsTotal));
+                                DAQmxErrChk (DAQmxCfgSampClkTiming(scanTaskHandle,"/Dev1/PFI13",Samp_Rate, DAQmx_Val_Rising,DAQmx_Val_FiniteSamps,numSampsTotal));
 		}
 		if (bTrigger)
 		{
