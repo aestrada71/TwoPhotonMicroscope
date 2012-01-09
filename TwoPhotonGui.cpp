@@ -41,11 +41,7 @@
 //Connects all GUI signals and slots, initializes all encapsulated class instances, opens NI VISION module
 TwoPhotonGui::TwoPhotonGui(QWidget * parent)
 {
-	Point	toolPos;
-	toolPos.x=850;
-	toolPos.y=20;
 
-	
 	//Set up QT Gui
 	
 	setupUi(this);
@@ -133,13 +129,10 @@ TwoPhotonGui::TwoPhotonGui(QWidget * parent)
 	connect(doubleSpinBox_zStepSize,SIGNAL(editingFinished()),this,SLOT(updateNumZSteps()));
         connect(doubleSpinBox_zStopPos,SIGNAL(editingFinished()),this,SLOT(updateNumZSteps()));
 
-
 	//Whenever Linescan gui widgets are changed, update scan speed
 	connect(spinBox_Width,SIGNAL(editingFinished()),this,SLOT(UpdateLineScanSpeed()));
 	connect(spinBox_Repeat,SIGNAL(editingFinished()),this,SLOT(UpdateLineScanSpeed()));
 	connect(doubleSpinBox_SampleRate,SIGNAL(editingFinished()),this,SLOT(UpdateLineScanSpeed()));
-
-
 
 	//Whenever DataFile gui widgets are changed, update class Instance
 	connect(lineEdit_OutputDir,SIGNAL(editingFinished()),this,SLOT(updateDataFile()));
@@ -208,6 +201,8 @@ TwoPhotonGui::TwoPhotonGui(QWidget * parent)
 	connect(spinBox_xPosBeamPark,SIGNAL(editingFinished()),this,SLOT(updateScanEng()));
 	connect(spinBox_yPosBeamPark,SIGNAL(editingFinished()),this,SLOT(updateScanEng()));
 
+        //Whenever NIVision member var emits events that need to be handled in GUI
+        connect(&(this->niVision),SIGNAL(NIVisionPointToolClickEvent(Rect)),this,SLOT(SlotUpdateGUIROIXY(Rect)));
 
 	//-----------------------------------------------------------------------------------
 	//-----------------------------------------------------------------------------------
@@ -219,12 +214,6 @@ TwoPhotonGui::TwoPhotonGui(QWidget * parent)
 	updateLineRateField();
 	UpdateLineScanSpeed();
 	UpdateMemoryNeeded();
-
-	//Init dangling pointers
-	image1 = NULL;
-	image2 = NULL;
-	imageData1 = NULL;
-	imageData2 = NULL;
 	
 
 	//resize columns for saved locations
@@ -265,11 +254,11 @@ void TwoPhotonGui::updateAomControl()
 	aomClass->setAomOnVoltage(TwoPhotonGui::doubleSpinBox_AomVoltAmp->value());
 	
 	tempString = TwoPhotonGui::comboBox_AomChan->currentText();
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	aomClass->setAomChan(temp);
 
 	tempString = TwoPhotonGui::comboBox_AomRefOutChan->currentText();
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	aomClass->setAomRefOutChan(temp);
 
 	aomClass->setAomVoltage(TwoPhotonGui::doubleSpinBox_AomVoltAmp->value());
@@ -299,6 +288,8 @@ void TwoPhotonGui::updateAomControl()
 	//Emit signal to send data
 	emit sendAomClassData(aomClass);
 	emit sigAomControlUpdate(TwoPhotonGui::doubleSpinBox_AomVoltAmp->value());
+
+        delete aomClass;
 }
 //Function: updateAcqEng
 //Type: Slot
@@ -316,7 +307,7 @@ void TwoPhotonGui::updateAcqEng()
 	acqEng->setDToARate(TwoPhotonGui::doubleSpinBox_SampleRate->value());
 	
 	tempString	= TwoPhotonGui::comboBox_AIRange->currentText();	
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	second = temp[1];
 	switch(second)					//The second value (unique) from the string contained in the combobox is used to compare
 	{				
@@ -335,11 +326,11 @@ void TwoPhotonGui::updateAcqEng()
 	}
 
 	tempString = TwoPhotonGui::comboBox_InChan1->currentText();		//chan1
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	acqEng->setAcqChan1(temp);								
 
 	tempString = TwoPhotonGui::comboBox_InChan2->currentText();		//chan2
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	acqEng->setAcqChan2(temp);
 
 	acqEng->setnumValidXSamps(TwoPhotonGui::spinBox_numXPx->value());
@@ -401,6 +392,8 @@ void TwoPhotonGui::updateAcqEng()
 
 	emit sendAcqClassData(*acqEng);
 
+        delete acqEng;
+
 }
 
 
@@ -423,6 +416,8 @@ void TwoPhotonGui::updateZStepEng()
 	zStepClass->setDesiredZPos(TwoPhotonGui::doubleSpinBox_moveToPos->value());
 
 	emit sendZStepClassData(*zStepClass);
+
+        delete zStepClass;
 }
 //Function: updateScanEng
 //Type: Slot
@@ -445,15 +440,15 @@ void TwoPhotonGui::updateScanEng()
 	scanEng->setRepeats(TwoPhotonGui::spinBox_Repeat->value());
 
 	tempString	= TwoPhotonGui::comboBox_xChannel->currentText();	//xChan
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	scanEng->setXChan(temp);								
 
 	tempString	= TwoPhotonGui::comboBox_yChannel->currentText();	//yChan
-	strcpy(temp,tempString.toAscii().data());		
+        strcpy_s(temp,tempString.toAscii().data());
 	scanEng->setYChan(temp);
 
 	//tempString	= TwoPhotonGui::comboBox_trigChannel->currentText();	//trigChan
-	strcpy(temp,tempString.toAscii().data());		
+        strcpy_s(temp,tempString.toAscii().data());
 	scanEng->setTrigChan(temp);
 
 	bTrig = TwoPhotonGui::checkBox_TrigAcq->isChecked();
@@ -485,6 +480,8 @@ void TwoPhotonGui::updateScanEng()
 	scanEng->setPark_Y(TwoPhotonGui::spinBox_yPosBeamPark->value());
 
 	emit sendScanClassData(scanEng);
+
+        delete scanEng;
 }
 //Function: updateDataFile
 //Type: Slot
@@ -498,14 +495,17 @@ void TwoPhotonGui::updateDataFile()
 	
 	//Update output directory
 	tempString = TwoPhotonGui::lineEdit_OutputDir->text();
-	strcpy(temp,tempString.toAscii().data());
+        strcpy_s(temp,tempString.toAscii().data());
 	
 	dataClass->setOutputDir(temp);
+        dataClass->setOutputDir2(tempString);
 
 	//Update Header data used for saving
 	dataClass->Header.setB3DAcq(TwoPhotonGui::checkBox_3dAcq->isChecked());
 
 	emit sendDataClassData(*dataClass);
+
+        delete dataClass;
 }
 //Function: updateScalingField
 //Type: Slot
@@ -1271,7 +1271,7 @@ void TwoPhotonGui::setLocTree(QTreeWidget* tree)
 	//copy all values of tree into new list
 	//for(i=0;i<numItems;i++)
 	//{
-		TwoPhotonGui::treeWidget_savedLocs->takeTopLevelItem(i);
+                TwoPhotonGui::treeWidget_savedLocs->takeTopLevelItem(0);
 		entry = tree->takeTopLevelItem(0);
 		TwoPhotonGui::treeWidget_savedLocs->addTopLevelItem(entry);
 		//tree->insertTopLevelItem(i,entry);	//re-enter so that index is unchanged
@@ -1292,8 +1292,8 @@ void TwoPhotonGui::popupMessage(QString title,QString message)
 //Input: index, objective name, data value associated with objective
 void TwoPhotonGui::addMagEntry(int numObj,char* string, int data)
 {
-	TwoPhotonGui::comboBox_Magnification->insertItem(numObj,string,data);
-	TwoPhotonGui::comboBox_Magnification->setItemData(numObj,data,1);
+    TwoPhotonGui::comboBox_Magnification->insertItem(numObj,string,data);
+    TwoPhotonGui::comboBox_Magnification->setItemData(numObj,data,1);
 }
 //Function: setXYCom
 //Type: Slot
@@ -1301,7 +1301,7 @@ void TwoPhotonGui::addMagEntry(int numObj,char* string, int data)
 //Input: com port value
 void TwoPhotonGui::setXYCom(int port)
 {
-	TwoPhotonGui::spinBox_ComPortXYStep->setValue(port);
+    TwoPhotonGui::spinBox_ComPortXYStep->setValue(port);
 }
 //Function: setZCom
 //Type: Slot
@@ -1309,23 +1309,23 @@ void TwoPhotonGui::setXYCom(int port)
 //Input: com port value
 void TwoPhotonGui::setZCom(int port)
 {
-	TwoPhotonGui::spinBox_ComPortZStep->setValue(port);
+    TwoPhotonGui::spinBox_ComPortZStep->setValue(port);
 }
 //Function: updateScaling
 //Type: Slot
 //Description: updates scaling field to most recent obj if updated
 void TwoPhotonGui::updateScaling()
 {
-	QVariant QV = TwoPhotonGui::comboBox_Magnification->itemData(TwoPhotonGui::comboBox_Magnification->currentIndex(),1);
-	TwoPhotonGui::spinBox_Scaling->setValue(QV.toInt());
+    QVariant QV = TwoPhotonGui::comboBox_Magnification->itemData(TwoPhotonGui::comboBox_Magnification->currentIndex(),1);
+    TwoPhotonGui::spinBox_Scaling->setValue(QV.toInt());
 }
 //Function: clearLog
 //Type: Slot
 //Description: clears the log, sets font size
 void TwoPhotonGui::clearLog()
 {
-	TwoPhotonGui::textEdit_log->clear();
-	TwoPhotonGui::textEdit_log->setFontPointSize(7);
+    TwoPhotonGui::textEdit_log->clear();
+    TwoPhotonGui::textEdit_log->setFontPointSize(7);
 }
 //Function: processLogText
 //Type: Slot
@@ -1333,7 +1333,7 @@ void TwoPhotonGui::clearLog()
 //Input: text, describing entry
 void TwoPhotonGui::processLogText(QString text)
 {
-	TwoPhotonGui::textEdit_log->insertPlainText(text);
+    TwoPhotonGui::textEdit_log->insertPlainText(text);
 }
 //Function: receivePort
 //Type: Slot
@@ -1341,11 +1341,11 @@ void TwoPhotonGui::processLogText(QString text)
 //Input: port number
 void TwoPhotonGui::receivePort(int port)
 {
-	char buff[12];
+    char buff[12];
 
-	itoa(port,buff,10);
+    itoa(port,buff,10);
 
-	TwoPhotonGui::lineEdit_ServerPort->setText(buff);
+    TwoPhotonGui::lineEdit_ServerPort->setText(buff);
 }
 
 
@@ -1353,5 +1353,13 @@ void TwoPhotonGui::receivePort(int port)
 //Description: Slot used to update z position during z-stack acq
 void TwoPhotonGui::updZPos(float zPos)
 {
-	TwoPhotonGui::doubleSpinBox_zPos->setValue(zPos);
+    TwoPhotonGui::doubleSpinBox_zPos->setValue(zPos);
  }
+
+void TwoPhotonGui::SlotUpdateGUIROIXY(Rect rect)
+{
+
+    this->spinBox_xPosBeamPark->setValue(rect.left);
+    this->spinBox_yPosBeamPark->setValue(rect.top);
+}
+

@@ -202,7 +202,7 @@ int stepperDriver::MoveY(int steps)
 	char command[25] = "F,C,I2M";
 
 	char buf[10];
-	itoa(temp,buf,10);		//convert steps to buffer string
+        itoa(temp,buf,10);	//convert steps to buffer string
 	strcat(command,buf);	//append amount of steps to string
 	strcat(command,",R");	//append run component of command
 

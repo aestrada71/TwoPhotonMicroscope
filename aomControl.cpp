@@ -22,9 +22,9 @@
 #include "nivision.h"
 
 //static members, constants
-const double		AomControl::Aom_Max_Voltage					= 2.6;
-const double		AomControl::Aom_Min_Voltage					= -2.6;
-const float			AomControl::Aom_Sample_Rate					= 1e6;
+const double		AomControl::Aom_Max_Voltage			= 2.6;
+const double		AomControl::Aom_Min_Voltage			= -2.6;
+const float			AomControl::Aom_Sample_Rate		= 1e6;
 const char			AomControl::AOM_RETRIG_SMPL_CLK_TERMINAL[]	= "/Dev1/Ctr0InternalOutput";	//Ctr1InternalOutput
 const char			AomControl::AOM_RETRIG_TRIG_TERMINAL[]		= "/Dev3/Ctr0InternalOutput";	//May need to find a suitable counter or clock or trig source
 const char			AomControl::AOM_RETRIG_SMPL_CLK_SOURCE[]	= "/Dev1/ctr0";
@@ -63,8 +63,8 @@ int AomControl::initAomCtrl()
 	AOMTaskHandle = 0;
 	AOMReTrigTaskHandle = 0;
 	AOMSmplClkTaskHandle = 0;
-	strcpy(AOMReTrigSampClkChan, AOM_RETRIG_SMPL_CLK_SOURCE);
-	strcpy(AOMReTrigTrigChan, AOM_RETRIG_TRIG_SOURCE);
+	strcpy_s(AOMReTrigSampClkChan, AOM_RETRIG_SMPL_CLK_SOURCE);
+	strcpy_s(AOMReTrigTrigChan, AOM_RETRIG_TRIG_SOURCE);
 
 	bIntScaling = false;
 	intensityScalingTopV = 1;
@@ -166,9 +166,9 @@ int AomControl::configNiDAQ()
 	AOMSmplClkTaskHandle = 0;
 
 	// DAQmx Configure Code
-	DAQmxErrChk(DAQmxCreateTask("AOMCntrlTask",&AOMTaskHandle));
-	DAQmxErrChk(DAQmxCreateAOVoltageChan(AOMTaskHandle, AOMChan,"",AomMinVoltage,AomMaxVoltage,DAQmx_Val_Volts,NULL));
-	DAQmxErrChk(DAQmxCreateAOVoltageChan(AOMTaskHandle, AOMRefOutChan,"",-5,5,DAQmx_Val_Volts,NULL));
+        DAQmxErrChk(DAQmxCreateTask("AOMCntrlTask",&AOMTaskHandle))
+        DAQmxErrChk(DAQmxCreateAOVoltageChan(AOMTaskHandle, AOMChan,"",AomMinVoltage,AomMaxVoltage,DAQmx_Val_Volts,NULL))
+        DAQmxErrChk(DAQmxCreateAOVoltageChan(AOMTaskHandle, AOMRefOutChan,"",-5,5,DAQmx_Val_Volts,NULL))
 	
 	if (bAOMPulsed)
 	{

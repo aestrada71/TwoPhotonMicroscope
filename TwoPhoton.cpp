@@ -18,7 +18,16 @@
 #include "TwoPhotonGui.h"
 #include "TwoPhotonControl.h"
 
+/*
+void __cdecl NIVisionCallbackFunction(WindowEventType* type, int* windowNumber,
+                                       Tool* tool, Rect* rect);
 
+*/
+
+//Need to have a global var to hold the pointer to the
+// NIVision class variable in GUI Class.  Needed
+// to make the NIVision Callback functionality work
+NIVisionClass* niVisionVarPtr;
 
 //----------------------------------
 
@@ -31,7 +40,8 @@
     QApplication app(argc, argv);
 
 	//declare class instances
-	TwoPhotonGui gui;
+        TwoPhotonGui gui;
+        niVisionVarPtr = &(gui.niVision);
 	TwoPhotonControl tpControl;// = new TwoPhotonControl();
 
 	//Connect signals from gui generated events to control class ;
@@ -127,13 +137,26 @@
 	gui.connect(&tpControl, SIGNAL(sigSendPort(int)),&gui,SLOT(receivePort(int)));
         gui.connect(&tpControl, SIGNAL(sigUpdateLifetimeAcqNum(int)),&gui,SLOT(updateLifeTimeAcqNumber(int)));
         gui.connect(&tpControl, SIGNAL(sigChkSave(bool)),&gui,SLOT(setChkSave(bool)));
-	
-	//Init application class
-	tpControl.init();
-	//Display Gui
+
+        app.connect(&tpControl, SIGNAL(sigToggleTools()),&(gui.niVision),SLOT(slotToggleTools()));
+        app.connect(&tpControl, SIGNAL(sigToggleImage1()),&(gui.niVision),SLOT(slotToggleImage1()));
+        app.connect(&tpControl, SIGNAL(sigToggleImage2()),&(gui.niVision),SLOT(slotToggleImage2()));
+
+        //Init control class
+        tpControl.init();
+        gui.connect(tpControl.GetAcqThread(), SIGNAL(sendMessageForPopup(QString,QString)),&gui, SLOT(popupMessage(QString,QString)));
+        gui.connect(tpControl.GetAcqThread(), SIGNAL(sigUdateVisionWindows(int,int,int)),&(gui.niVision), SLOT(slotUpdateVisionWindows(int,int,int)));
+
+        //Display Gui
 	gui.show();	
 	
-	
+        tpControl.SetNIVisionContourArray((gui.niVision.contourInfoArray));
+
+        tpControl.GetAcqThread()-> setPtrToImage1(gui.niVision.GetPtrToImage1Ptr());
+        tpControl.GetAcqThread()->setPtrToImage2(gui.niVision.GetPtrToImage2Ptr());
+        tpControl.GetAcqThread()->setPtrToImage1Data(gui.niVision.GetPtrToImageData1Ptr());
+        tpControl.GetAcqThread()->setPtrToImage2Data(gui.niVision.GetPtrToImageData2Ptr());
+        app.connect(&(gui.niVision), SIGNAL(NIVisionVarsChanged(NIVisionClass*)),&tpControl, SLOT(slotUpdateLocalNIVisionVars(NIVisionClass*)));
 
 	//call destructor for GUI
     retVal = app.exec();
@@ -141,3 +164,5 @@
 	return retVal;
 	
  }
+
+

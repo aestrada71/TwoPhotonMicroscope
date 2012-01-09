@@ -25,10 +25,10 @@
 
 // static constants
 const double ScanEngine::PI = 3.1415926535897932384626433832795028841971;
-const double ScanEngine::MAXVOLT_X = 5.0;
-const double ScanEngine::MINVOLT_X = -5.0;
-const double ScanEngine::MAXVOLT_Y = 5.0;
-const double ScanEngine::MINVOLT_Y = -5.0;
+const double ScanEngine::MAXVOLT_X = 5.5;
+const double ScanEngine::MINVOLT_X = -5.5;
+const double ScanEngine::MAXVOLT_Y = 5.5;
+const double ScanEngine::MINVOLT_Y = -5.5;
 
 // constructor
 ScanEngine::ScanEngine(int numLinesFlyback, double percentOverscan, double overScanV)

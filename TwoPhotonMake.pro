@@ -20,6 +20,8 @@ HEADERS += TwoPhotonGui.h \
 		   zStepDriver.h \
 		   TwoPhotonControl.h \
 		   Server.h \
+                    nivisionclass.h \
+                    spc_data_file_structure.h
 		   
 FORMS += TwoPhoton.ui
 
@@ -36,6 +38,7 @@ SOURCES += TwoPhoton.cpp \
 		   zStepDriver.cpp \
 		   TwoPhotonControl.cpp \
 		   Server.cpp \
+    nivisionclass.cpp
 
 		   
 DEPENDPATH += .

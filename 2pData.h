@@ -14,6 +14,7 @@
 #define __WRITE_2P_DATA_H
 
 #include "acqengine.h"
+#include <QDir>
 
 #define F_NAME_SIZE 1024
 
@@ -160,13 +161,19 @@ public:
 	//----------------------------------------------------------------------------------------
 	char *getFileName() { return FileName; } 
 	char *getOutputDir() { return outputDir; }
-	
+        QDir getOutputDir2() {return outputDir2;}
+        QString getOutputDir2Path() {return outputDir2.path();}
+        bool getLifetimeAcq() {return lifetimeAcq;}
+
 	//----------------------------------------------------------------------------------------
 	// Modifier Functions --------------------------------------------------------------------
 	//----------------------------------------------------------------------------------------
 	//void setFileName(char* name) { FileName = name; }
 	void setOutputDir(char dir[]) { memcpy(outputDir,dir,1024*sizeof(char)); }		
-	void setPtrData(short* data) { PtrData = data; }
+        void setOutputDir2(QDir dir) {outputDir2 = dir;}
+        void setOutputDir2Path(QString path) {outputDir2.setPath(path);}
+        void setPtrData(short* data) { PtrData = data; }
+        void setLifetimeAcq(bool temp) {lifetimeAcq = temp;}
 
 	
 private:
@@ -175,13 +182,17 @@ private:
 	//static const char suffix[] = ".dat";
 
 	char FileName[F_NAME_SIZE];
+        QString fileName2;
 	char outputDir[F_NAME_SIZE];
+        QDir outputDir2;            //Changing to use QT Dir class
+
 	short* PtrData;
 
 	long Min_Count;
 	long Max_Count;
 	int ADC_Num_Bits;
 	float Version_Number;
+        bool lifetimeAcq;
 
 };
 

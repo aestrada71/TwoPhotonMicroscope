@@ -54,7 +54,9 @@ DataFile2P::DataFile2P(long minCount,long maxCount, int adcNumBits,float version
 	Max_Count = maxCount;
 	ADC_Num_Bits = adcNumBits;
 	Version_Number = versionNumber;
-	strcpy(outputDir,"c:\\Data\\");
+        strcpy_s(outputDir,"c:\\Data\\");
+        outputDir2.setPath("c:\\Data\\");
+        lifetimeAcq = false;
 
 	//initialize mag string
 	for (i=0;i<64;i++)
@@ -73,22 +75,37 @@ int DataFile2P::CreateChanDir(int chanNum)
 {
 	char		dir[100];
 	char		chanBuff[5];
+        QString            tempQString;
+        QDir                tempQDir;
 	
 	
 	//Format channel buffer to separate files into different channel folders
-	sprintf(chanBuff,"Ch%d",chanNum);
-	strcat(chanBuff,"\\");
+        sprintf_s(chanBuff,"Ch%d",chanNum);
+        strcat_s(chanBuff,"\\");
 
 	//Create directory string
-	strcpy(dir, outputDir);
-	strcat(dir,chanBuff);
+        strcpy_s(dir, outputDir);
+        tempQString = outputDir2.path();
 
+        if (lifetimeAcq)
+        {
+            strcat(dir,"Lifetime_Data\\");
+            tempQString.append("\\Lifetime_Data\\");
+        }
+        else
+        {
+            strcat(dir,chanBuff);
+            tempQString.append("\\");
+            tempQString.append(chanBuff);
+        }
+
+        tempQDir.setPath(tempQString);
 
 	//CreateDirectory
-	if(mkdir(dir))
-		return 1;
+        if(!(tempQDir.mkpath(dir)))
+                return 0;
 	else
-		return 0;
+                return 1;
 
 }
 // -Sep 1 2010: Added ms resolution to file name.  Simplified code to create name.  -ADE
@@ -99,10 +116,12 @@ int DataFile2P::GenFileName(int chanNum)
 	char		temp3[10];
 	char		chanBuff[5];
         SYSTEMTIME      st;                                   //Added for millisecond time in filenames
-	int			tempZPos;
+        int		tempZPos;
+        QString         tempQString = "";
 	
 	//Erase previous file name.
 	FileName[0] = '\0';
+        fileName2 = "";
 
 	// Create name based off default dir and time and date.
         GetLocalTime(&st);
@@ -110,6 +129,8 @@ int DataFile2P::GenFileName(int chanNum)
 
         sprintf(temp3, "_Chan_%d" ,chanNum);
         strcat(temp, temp3);
+        tempQString.append(temp);
+
 
 	//Add zpos to filename if 3D Acq.
 	if (Header.getB3DAcq())
@@ -117,17 +138,33 @@ int DataFile2P::GenFileName(int chanNum)
 		tempZPos = (int)(Header.getZPos() + 0.5);		//Round to nearest int value
 		sprintf(temp2, "_Z_%d_um", tempZPos);
 		strcat(temp,temp2);
+                tempQString.append(temp2);
 	}
 	
-	//Format channel buffer to separate files into different channel folders
-	sprintf(chanBuff,"Ch%d",chanNum);
-	strcat(chanBuff,"\\");
+        //Create name string.  Start with base Dir
+        strcpy_s(FileName, outputDir);
 
-	//Create name string
-	strcpy(FileName, outputDir);
-	strcat(FileName,chanBuff);
+        if (lifetimeAcq)
+        {
+           strcat(FileName, "Lifetime_Data\\");
+           tempQString.prepend("Lifetime_Data\\");
+
+        }
+        else
+        {
+            //Format channel buffer to separate files into different channel folders
+            sprintf(chanBuff,"Ch%d\\",chanNum);
+            strcat(FileName,chanBuff);
+            tempQString.prepend(chanBuff);
+        }
+
+        tempQString.prepend("\\");
+        tempQString.prepend(outputDir2.path());
 	strcat(temp, suffix);
 	strcat(FileName, temp);
+        tempQString.append(suffix);
+        fileName2 = tempQString;
+        //tempQString.append();
 
 	return 1;
 }

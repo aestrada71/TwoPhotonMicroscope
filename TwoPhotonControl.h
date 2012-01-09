@@ -25,6 +25,7 @@
 #include "stepperDriver.h"
 #include "zStepDriver.h"
 #include "Server.h"
+#include "nivisionclass.h"
 
 
 #ifndef TWOPHOTONCONTROL_H
@@ -41,15 +42,18 @@ public:
 	// destructor
 	~TwoPhotonControl();
 	
-	//----------------------------------------------------------------------------------------
+
+        //----------------------------------------------------------------------------------------
 	// Access Functions ----------------------------------------------------------------------
 	//----------------------------------------------------------------------------------------
-	
-	//----------------------------------------------------------------------------------------
+        AcqThread* GetAcqThread(){return acqThread;}
+
+        //----------------------------------------------------------------------------------------
 	// Modifier Functions --------------------------------------------------------------------
 	//----------------------------------------------------------------------------------------
-	
-	//----------------------------------------------------------------------------------------
+        void SetNIVisionContourArray(ContourInfo2**  temp){NIVisionContourArray = temp;}
+
+        //----------------------------------------------------------------------------------------
 	// Member Functions ----------------------------------------------------------------------
 	//----------------------------------------------------------------------------------------
 	int init();
@@ -126,6 +130,8 @@ public:
 		void rotateGalvos();
 		void slotSendPort(int port);
                 void slotUpdateLTAcqNum(int num);
+                void slotUpdateLocalNIVisionVars(NIVisionClass* niVisionVar);
+                void slotUpdateROIXY(Rect rect);
 
 		//Acquisition Thread interfacing slots
 		void acqFinished();
@@ -181,6 +187,9 @@ signals:
 	void sigToggleAomWidgets(bool aomOn);
 	void sigSendPort(int port);
         void sigUpdateLifetimeAcqNum(int acqNumber);
+        void sigToggleTools();
+        void sigToggleImage1();
+        void sigToggleImage2();
 
 private:
 
@@ -198,17 +207,21 @@ private:
 	Server *tcspcServer;
 
 	//Member variables --------------------------------------------------------
-	short			scaleMin1;					//Min val for signed short
-	short			scaleMax1;					//Max val for signed short
-	short			scaleMin2;					//Min val for signed short
-	short			scaleMax2;					//Max val for signed short
-	double			zStartPos;
-	double			zStepSize;
-	double			numZSteps;
-	double			zPos;
-	bool			bAdjustLaserIntensityOn3DAcq;
-	double			scanPercent;				//used to update scan progress bar
-	int				lifeTimeAcqNumber;			//Counter used to keep reference TCSPC board lifetime data
+        short		scaleMin1;				//Min val for signed short
+        short		scaleMax1;				//Max val for signed short
+        short		scaleMin2;				//Min val for signed short
+        short		scaleMax2;				//Max val for signed short
+        double		zStartPos;
+        double		zStepSize;
+        double		numZSteps;
+        double		zPos;
+        bool		bAdjustLaserIntensityOn3DAcq;
+        double		scanPercent;				//used to update scan progress bar
+        int		lifeTimeAcqNumber;			//Counter used to keep reference TCSPC board lifetime data
+        int             numContours;
+        ROI*            NIVisionCurr_ROI;
+        ContourInfo2**  NIVisionContourArray;              //Ptr to array of ContourInfo pointers
+
 
 	//Initialization Variables-------------------------------------------------
 	//These variables are used to initialize other classes
@@ -226,7 +239,7 @@ private:
 	static const char		TCSPC_Trig_Channel[];		//To start TCSPC board measurement 
 	static const char		Trig_Channel[];
 	static const double		Num_XYSteps_Per_Micron;			//x-y stage.  Make this more accurate
-
+        static const int                LIFETIME_REPEAT_NUM;
 };
 
 #endif

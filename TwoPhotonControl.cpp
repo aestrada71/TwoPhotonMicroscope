@@ -39,11 +39,11 @@
 
 	X-galvo scan:		/dev1/ao0
 	Y-galvo scan:		/dev1/ao1
-	AOM Ctrl:			/dev1/ao2
+        AOM Ctrl:		/dev1/ao2
 	AOM Ref Out:		/dev1/ao3
 
-	CH1 PMT:			/dev1/ai0
-	CH2 PMT:			/dev1/ai1
+        CH1 PMT:		/dev1/ai0
+        CH2 PMT:		/dev1/ai1
 
 	TCSPC Trigger:		/dev1/PFI1
 
@@ -67,15 +67,16 @@
 */
 
 // Global Vars & Constants ------------------------------------------------------
-double			MaxVolts_X = 5.0;	//max allowable volts for x-galvos
-double			MinVolts_X = -5.0;	//max allowable volts for x-galvos
+double          MaxVolts_X = 5.5;	//max allowable volts for x-galvos
+double          MinVolts_X = -5.5;	//max allowable volts for x-galvos
 const double	TwoPhotonControl::SCANENGINE_PERCENT_OVERSCAN = 0.10;
 const double	TwoPhotonControl::SCANENGINE_PERCENT_OVERSCAN_V = 0.05;
-const float		TwoPhotonControl::Version_Number = 2.0001;	//****SEE ABOVE VERSION INFO
+const float     TwoPhotonControl::Version_Number = 2.0001;	//****SEE ABOVE VERSION INFO
 const double	TwoPhotonControl::Num_XYSteps_Per_Micron = 0.6333;
-const char		TwoPhotonControl::TCSPC_Trig_Channel[] = "/Dev3/port0/line1";	//"/Dev1/ao3";		//To start TCSPC board measurement 
-const char		TwoPhotonControl::Trig_Channel[] = "/Dev3/port0/line1";		
-TaskHandle		digTaskHandle1;		//Task handle for sample clock task.
+const char      TwoPhotonControl::TCSPC_Trig_Channel[] = "/Dev3/port0/line1";	//"/Dev1/ao3";		//To start TCSPC board measurement
+const char      TwoPhotonControl::Trig_Channel[] = "/Dev3/port0/line1";
+TaskHandle      digTaskHandle1;		//Task handle for sample clock task.
+const int       TwoPhotonControl::LIFETIME_REPEAT_NUM = 5;
 
 // -----------------------------------------------------------------------------
 
@@ -85,7 +86,107 @@ TaskHandle		digTaskHandle1;		//Task handle for sample clock task.
 TwoPhotonControl::TwoPhotonControl(QObject * parent) : QObject(parent)
 {
 	lifeTimeAcqNumber = 1;
+        //init();
 }
+
+
+//Function: init
+//Type: Member Function
+//Description: Initializes application class
+//Returns: 1 for success
+int TwoPhotonControl::init()
+{
+
+
+        //define class instances
+        data2P = new DataFile2P(Min_Count,Max_Count,ADC_Num_Bits,Version_Number);
+        acqEng = new AcqEngine(Num_Lines_Flyback);
+        aomCtrl = new AomControl;
+        scanEng = new ScanEngine(Num_Lines_Flyback,SCANENGINE_PERCENT_OVERSCAN,SCANENGINE_PERCENT_OVERSCAN_V);
+        stepEng = new stepperDriver;
+        zStepEng = new zStepperDriver;
+
+        //must initialize aom control, since it by default updates output
+        aomCtrl->initAomCtrl();
+
+        //initialize class instances
+        emit sigUpdateDataFile();
+        emit sigUpdateAcqEng();
+        emit sigUpdateAomControl();
+        emit sigUpdateScanEng();
+        emit sigUpdateZStepEng();
+
+        //set up server
+        tcspcServer = new Server();
+        connect(tcspcServer,SIGNAL(sendPort(int)),this,SLOT(slotSendPort(int)));
+        tcspcServer->init();
+
+        //parse config
+        ParseConfig();
+
+        //setup aomTimer, connect to slot
+        aomTimer = new QTimer();
+        connect(aomTimer, SIGNAL(timeout()), this, SLOT(updateAomTimer()));
+
+        //setup scanTimer, connect to slot
+        scanTimer = new QTimer();
+        connect(scanTimer,SIGNAL(timeout()),this, SLOT(updateScanBar()));
+        scanPercent = -1;
+
+        //Init dangling pointers.
+        acqEng->setAcqData(NULL);
+        scanEng->setDacData(NULL);
+        data2P->setPtrData(NULL);
+
+        //open connections for VXM stepper
+        if(!stepEng->LoadVXMDriver())
+                emit sendMessageForPopup("Error","Velmex VXM Motor Controller drivers not detected.\n"
+                                                                                "Make sure driver files are located in program directory.\n\n"
+                                                                                "Copy drivers to program directory and restart program.");
+        if(!stepEng->openSerialPort())
+                emit sendMessageForPopup("Error","Velmex VXM Motor Controller hardware not detected.\n"
+                                                                                "VXM controller must be connected to Serial Port.\n\n"
+                                                                                "Connect hardware and reconnect in harware config tab.");
+
+        acqThread = new AcqThread(ADC_Num_Bits,Min_Count,Max_Count,Version_Number,scanEng,acqEng,data2P,zStepEng,aomCtrl);
+        acqThread->setNIVisionContourInfo(this->NIVisionContourArray[0]);
+
+        //Connect to acqThread
+        connect(acqThread,SIGNAL(acqFinished()),this,SLOT(stopAcq()));
+        connect(acqThread,SIGNAL(acqFinished()),this,SLOT(acqFinished()));
+        connect(acqThread,SIGNAL(sendProgress(double)),this,SLOT(progressUpdate(double)));
+        connect(acqThread,SIGNAL(sigZPosChange(double)),this,SLOT(zPosUpdate(double)));
+
+
+        acqEng->initAcq(false,false);
+        //aomCtrl->initAomCtrl();
+        scanEng->initScan(false,false);
+
+        zStepEng->setInitialized(false);
+        acqEng->setBInitialized(false);
+        acqEng->setMemIsAllocated(0);
+        scanEng->setBInitialized(false);
+        scanEng->setMemIsAllocated(0);
+        //aomCtrl->setInitialized(false);
+
+        //Open connections for zStepEng
+        if(!zStepEng->Init())
+                emit sendMessageForPopup("Error","Z-Stepper Motor hardware not connected.\n"
+                                                                                "Motor controller must be connected to Serial Port.\n\n"
+                                                                                "Connect hardware and reconnect.");
+
+        //Load log file
+        InitLog();
+
+        //Start AOM
+        AomZeroStart();
+
+        digTaskHandle1=0;
+
+        return 1;
+}
+
+
 //Function: ~TwoPhotonControl
 //Type: Destructor
 //Description: Destructor
@@ -93,6 +194,14 @@ TwoPhotonControl::~TwoPhotonControl()
 {
 	//Turn off Aom
 	AomStop();
+
+        delete data2P;
+        delete acqEng;
+        delete aomCtrl;
+        delete scanEng;
+        delete stepEng;
+        delete zStepEng;
+        delete acqThread;
 }
 //Function: startScanBar
 //Type: Member Function
@@ -104,6 +213,12 @@ int TwoPhotonControl::startScanBar()
 
 	return 1;
 }
+
+
+
+
+
+
 //Function: RotateGalvos
 //Type: Slot
 //Description: initiates routine to drive galvos to rotate themselves. This is to
@@ -157,104 +272,7 @@ int TwoPhotonControl::stopScanBar()
 
 	return 1;
 }
-//Function: init
-//Type: Member Function
-//Description: Initializes application class
-//Returns: 1 for success
-int TwoPhotonControl::init()
-{
-	//temporary scaling - replace with histogram
-	scaleMin1 = 0;
-	scaleMax1 = 32768;
-	scaleMin2 = 0;
-	scaleMax2 = 32768;
 
-	//define class instances
-	data2P = new DataFile2P(Min_Count,Max_Count,ADC_Num_Bits,Version_Number);
-	acqEng = new AcqEngine(Num_Lines_Flyback);
-	aomCtrl = new AomControl;
-	scanEng = new ScanEngine(Num_Lines_Flyback,SCANENGINE_PERCENT_OVERSCAN,SCANENGINE_PERCENT_OVERSCAN_V);
-	stepEng = new stepperDriver;
-	zStepEng = new zStepperDriver;
-
-	//must initialize aom control, since it by default updates output
-	aomCtrl->initAomCtrl();
-	
-	//initialize class instances
-	emit sigUpdateDataFile();
-	emit sigUpdateAcqEng();
-	emit sigUpdateAomControl();
-	emit sigUpdateScanEng();
-	emit sigUpdateZStepEng();
-
-	//set up server
-	tcspcServer = new Server();
-	connect(tcspcServer,SIGNAL(sendPort(int)),this,SLOT(slotSendPort(int)));
-	tcspcServer->init();
-	
-	//parse config
-	ParseConfig();
-
-	//setup aomTimer, connect to slot
-	aomTimer = new QTimer();
-	connect(aomTimer, SIGNAL(timeout()), this, SLOT(updateAomTimer()));
-
-	//setup scanTimer, connect to slot
-	scanTimer = new QTimer();
-	connect(scanTimer,SIGNAL(timeout()),this, SLOT(updateScanBar()));
-	scanPercent = -1;
-
-	//Init dangling pointers.
-	acqEng->setAcqData(NULL);
-	scanEng->setDacData(NULL);
-	data2P->setPtrData(NULL);
-
-	//open connections for VXM stepper
-	if(!stepEng->LoadVXMDriver())
-		emit sendMessageForPopup("Error","Velmex VXM Motor Controller drivers not detected.\n"
-										"Make sure driver files are located in program directory.\n\n"
-										"Copy drivers to program directory and restart program.");
-	if(!stepEng->openSerialPort())
-		emit sendMessageForPopup("Error","Velmex VXM Motor Controller hardware not detected.\n"
-										"VXM controller must be connected to Serial Port.\n\n"
-										"Connect hardware and reconnect in harware config tab.");
-
-	acqThread = new AcqThread(ADC_Num_Bits,Min_Count,Max_Count,Version_Number,scanEng,acqEng,data2P,zStepEng,aomCtrl);
-	//Connect to acqThread
-	connect(acqThread,SIGNAL(acqFinished()),this,SLOT(stopAcq()));
-
-	connect(acqThread,SIGNAL(acqFinished()),this,SLOT(acqFinished()));
-	connect(acqThread,SIGNAL(sendProgress(double)),this,SLOT(progressUpdate(double)));
-	connect(acqThread,SIGNAL(sigZPosChange(double)),this,SLOT(zPosUpdate(double)));
-
-
-	acqEng->initAcq(false,false);
-	//aomCtrl->initAomCtrl();
-	scanEng->initScan(false,false);
-
-	zStepEng->setInitialized(false);
-	acqEng->setBInitialized(false);
-	acqEng->setMemIsAllocated(0);
-	scanEng->setBInitialized(false);
-	scanEng->setMemIsAllocated(0);
-	//aomCtrl->setInitialized(false);
-
-	//Open connections for zStepEng
-	if(!zStepEng->Init())
-		emit sendMessageForPopup("Error","Z-Stepper Motor hardware not connected.\n"
-										"Motor controller must be connected to Serial Port.\n\n"
-										"Connect hardware and reconnect.");
-
-	//Load log file
-	InitLog();
-
-	//Start AOM
-	AomZeroStart();
-
-	digTaskHandle1=0;
-	
-	return 1;
-}
 //----------------------------------------------------------------------------------------
 //	Slots --------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
@@ -366,77 +384,78 @@ void TwoPhotonControl::changeDir()
 //Description: Acquires lifetime data defined on previous image by NI open contour tools
 void TwoPhotonControl::AcqLifetimeData()
 {
-	ContourInfo2*	contourInfo;
-//	int				contourType;
-	int				NumPts;
-	int				totNumPts;
-	int				i;
-	int				j;
-	int				l;
-	int				k=0;
-	int				lastIndex = 0;
-//	int				foo;
-	int				x, y;
-	int				retVal;
-	double			xVolts,yVolts;
-	char			txtFileName[1024];
-//	char			dataFileName[1024];
-	char			temp[1024];
-	char			temp1[1024];
-	char			temp3[1024];
-	int				nameLength;
-//	bool			bMemAllocated = false;
-//	ofstream		outStream;					NEED IMPLEMENTATION
-//	double			xConversionFactor;
-//	double			galvoLagTime = acqEng->getXOffset() / acqEng->getDToARate();			//Seconds
-	int				numContours = 0;				//number of contours+1 drawn on screen
+//	ContourInfo2*	contourInfo;
+//	int		contourType;
+        int		NumPts;
+        int		totNumPts;
+        int		i;
+        int		j;
+        int		l;
+        int		k=0;
+        int		lastIndex = 0;
+//	int		foo;
+        int		x, y;
+        int		retVal;
+        double		xVolts,yVolts;
+        char		txtFileName[1024];
+//	char		dataFileName[1024];
+        char		temp[1024];
+        char		temp1[1024];
+        char		temp3[1024];
+        int		nameLength;
+//	bool		bMemAllocated = false;
+//	ofstream	outStream;					NEED IMPLEMENTATION
+//	double		xConversionFactor;
+//	double		galvoLagTime = acqEng->getXOffset() / acqEng->getDToARate();			//Seconds
+                                //number of contours+1 drawn on screen
 	ContourInfo2*	tempContour;
 	std::ofstream	outStream;
-	double			aomOnVoltage = 0.0;
-	bool			ok;
+        double		aomOnVoltage = 0.0;
+        bool		ok;
 	LifetimeAcq*	LTAcqPts = NULL;
+        QDir            tempDir;
+        QString         tempQString;
 
 
 	//stop any scanning - parkBeam
 	scanEng->stopDAQmxTask();
 	scanEng->clearDAQmxTask();
 
-	//Grab ROI info from display window in separate thread
-	contourInfo = acqThread->getContourVision(1);
-	if(!contourInfo)
+        if(!NIVisionContourArray[0])
 	{
-		emit sendMessageForPopup("Error","No Data Points Defined");
-		goto Error;
+            emit sendMessageForPopup("Error","No Data Points Defined");
+            goto Error;
 	}
-	if (contourInfo->type != IMAQ_OPEN_CONTOUR)
-	{
-			emit sendMessageForPopup("Error","Points must be defined with open contour tool!");
-			goto Error;
+        if ((NIVisionContourArray[0]->type != IMAQ_OPEN_CONTOUR)&&(NIVisionContourArray[0]->type != IMAQ_POINT))
+        {
+            emit sendMessageForPopup("Error","Points must be defined with open contour or point tool!");
+            goto Error;
 	}
 	
 	AddLogItem("Lifetime Acquisition Started");
 	
-	//set pulsed, nonCW AOM
+        //set pulsed, nonContinuous AOM
 	emit setChkAomPulsed(true);
 	emit setChkAomCont(false);
 
-	//Get number of contours
-	i=1;
-	do
-	{
-		contourInfo = acqThread->getContourVision(i);
-		i++;
-		numContours++;
-	}while((contourInfo!=NULL));
-	numContours--;
-	
 	//calculate the total number of points across all contours
+        numContours = 0;
+        for(l=0; l < 200; l++)
+        {
+            if ((NIVisionContourArray)[l])
+            {
+                numContours++;
+            }
+        }
+
 	totNumPts = 0;
-	for(i = 1; i<=numContours; i++)
-	{	
-		
-		tempContour = acqThread->getContourVision(i);
-		totNumPts+= tempContour->structure.openContour->numPoints;
+        for(i = 0; i < numContours; i++)
+	{		
+            tempContour = (NIVisionContourArray)[i];
+            if (tempContour->type == IMAQ_OPEN_CONTOUR)
+                totNumPts+= tempContour->structure.openContour->numPoints;
+            else if (tempContour->type == IMAQ_POINT)
+                totNumPts++;
 	}
 
 	//Create structure to hold ROI point information.  This info will be used in
@@ -444,25 +463,22 @@ void TwoPhotonControl::AcqLifetimeData()
 	// from
 	LTAcqPts = new LifetimeAcq[totNumPts];
 	
-	//Take an image and save it for reference.--------------------------------------------------------------------------
-	contourInfo = acqThread->getContourVision(1);
-        emit sigChkSave(true);
-
+        //Take an image and save it for reference.
 	if(!testXVoltageRange(false,scanEng->getOverscan()))
 	{
-		emit sendMessageForPopup("Error","Voltages for X Scanning out of range\n"
+            emit sendMessageForPopup("Error","Voltages for X Scanning out of range\n"
 								"Use lower voltages or less overscan\n");
-		return;
+            return;
 	}
 	if(updateLineRateField()>2500)
 	{
-		emit sendMessageForPopup("Error","Scan rate cannot go above 2.5KHz\n");
-		return;
+            emit sendMessageForPopup("Error","Scan rate cannot go above 2.5KHz\n");
+            return;
 	}
+        data2P->setLifetimeAcq(true); //Saves data in ./Lifetime_Data subfolder
 
-	
-	//Update acquisition vars -not needed now that everything is kept up to date always
-	emit sigUpdateDataFile();
+        emit sigChkSave(true);
+        emit sigUpdateDataFile();
 	emit sigUpdateAcqEng();
 	emit sigUpdateScanEng();
 	UpdateLineScanSpeed();
@@ -470,151 +486,187 @@ void TwoPhotonControl::AcqLifetimeData()
 	emit sigUpdateAomControl();
 
 	//lock some GUI Widgets during acquisition
-	emit sigLockControlWidgets();
+        QCoreApplication::processEvents();
+        emit sigLockControlWidgets();
+
+        //Create Lifetime_Data Dir if it doesnt already exist.
+        tempQString = data2P->getOutputDir2Path();
+        tempQString.append("/Lifetime_Data/");
+        tempDir.setPath(tempQString);
+        if (!tempDir.exists())
+        {
+            tempDir.mkdir(tempDir.absolutePath());
+        }
 
 	acqThread->exit();
-        //emit sigChkSave(true);
 	acqThread->init(scanEng,acqEng,data2P,zStepEng,aomCtrl);
 	acqThread->setLinescan(false);
 	acqThread->setContinuous(false);
 	acqThread->setLifetimeFov(true);
-	acqThread->start();	
+        acqThread->start();	//This acquires data
 	acqThread->wait(ULONG_MAX);
+
+
 	
 	//Prepare TCSPC Client for acquisition ---------------------
 	//tcspcServer->setData("Acq");
 
-	//------------------------------------------------------------------------------------------------------------------
+        //-----------------------------------------------------------
 		
 	//Ask user what voltage to use for the AOM.
-	ok = false;
-
-	while(!ok)
+        ok = false;     //Used for bounds checking in dialog box
+        while(!ok)      //Why is this while loop here?
 	{
-		aomOnVoltage = QInputDialog::getDouble(0,tr("AOM On Voltage"),tr("Aom On Voltage:"), 0.0, -2.20, 2.20, 2, &ok);
-		if(!ok)
-		{
-			emit sendMessageForPopup("Error","Invalid Aom Voltage");
-			return;
-		}
+            aomOnVoltage = QInputDialog::getDouble(0,tr("AOM On Voltage"),tr("Aom On Voltage:"), 0.0, -2.20, 2.20, 2, &ok);
+            if(!ok)
+            {
+                emit sendMessageForPopup("Error","Invalid Aom Voltage");
+                return;
+            }
 	}
 	
-        //Process system events to keep gui going
+        //Process all qued system events in this thread to keep gui going
         QCoreApplication::processEvents();
 
-	//Cycle through the countours
-	contourInfo = acqThread->getContourVision(1);
 
-	for(l = 1; l<=numContours; l++)
-	{
-		contourInfo = acqThread->getContourVision(l);
-		
-		NumPts = contourInfo->structure.openContour->numPoints;
+        //Cycle through all points on all countours
+        for(l = 0; l < numContours; l++)
+	{  
+            NumPts = 0;
+            tempContour = (NIVisionContourArray)[l];
+            if (tempContour->type == IMAQ_OPEN_CONTOUR)
+            {
+                NumPts = tempContour->structure.openContour->numPoints;
+            }
+            else if (tempContour->type == IMAQ_POINT)
+            {
+                NumPts = 1;
+            }
+            //Cycle through all points on each contour
+            for(i = 0; i < NumPts; i++)
+            {
+                //Output message to log that lifetime data is being acquired
+                sprintf(temp1,"Acquiring lifetime data for contour %i , point %i.",l,i+1);
+                AddLogItem(temp1);
+                QCoreApplication::processEvents();
+                if (tempContour->type == IMAQ_OPEN_CONTOUR)
+                {
+                    x=tempContour->structure.openContour->points[i].x;
+                    y=tempContour->structure.openContour->points[i].y;
+                }
+                else if (tempContour->type == IMAQ_POINT)
+                {
+                    x = tempContour->structure.point->x;
+                    y = tempContour->structure.point->y;
+                }
 
-		//Cycle through all points on each contour
-		for(i = 0; i < NumPts; i++)
-		{
-			//Output message to log that lifetime data is being acquired
-			sprintf(temp1,"Acquiring lifetime data for contour %i , point %i.",l,i+1);
-			//QMessageBox::about(this,"Info",temp1);
-			AddLogItem(temp1);
-                        QCoreApplication::processEvents();
+                //Calc x an y galvo voltage levels which correspond to the selected points
+                retVal = CalcXYVoltsFromPxlVal(x, y, xVolts, yVolts);
 
-			x=contourInfo->structure.openContour->points[i].x;
-			y=contourInfo->structure.openContour->points[i].y;	
-			
-			//Calc x an y galvo voltage levels which correspond to the selected points
-			retVal = CalcXYVoltsFromPxlVal(x, y, xVolts, yVolts);
+                //sprintf(str, "(%i,%i)",x, y);
+                LTAcqPts[i+lastIndex].setX(x);
+                LTAcqPts[i+lastIndex].setY(y);
+                LTAcqPts[i+lastIndex].setXVolts((float)xVolts);
+                LTAcqPts[i+lastIndex].setYVolts((float)yVolts);
+                LTAcqPts[i+lastIndex].setMeasRefNum(lifeTimeAcqNumber);;
+                //Acquire and save lifetime data for current point.
+                //Concat file name.
+/*		{strcpy(dataFileName, temp);
+                dataFileName[strlen(dataFileName)-4] = '\0';			//chop off the .dat suffix
+                sprintf(temp3,"_LifeTime_%i.dat",k+1);					//
+                strcat(dataFileName,temp3);							//Concat lifetime number.
+                k++;
 
-			//sprintf(str, "(%i,%i)",x, y);
-			LTAcqPts[i+lastIndex].setX(x);
-			LTAcqPts[i+lastIndex].setY(y);
-			LTAcqPts[i+lastIndex].setXVolts((float)xVolts);
-			LTAcqPts[i+lastIndex].setYVolts((float)yVolts);
-                        LTAcqPts[i+lastIndex].setMeasRefNum(lifeTimeAcqNumber);;
-			//Acquire and save lifetime data for current point.
-			//Concat file name.
-	/*		{strcpy(dataFileName, temp);		
-			dataFileName[strlen(dataFileName)-4] = '\0';			//chop off the .dat suffix
-			sprintf(temp3,"_LifeTime_%i.dat",k+1);					//
-			strcat(dataFileName,temp3);							//Concat lifetime number.
-			k++;
-		
-			//		-Old analog method (non photon-counting)
-			//retVal = LifetimeAcq(xVolts, yVolts, scanStruct,dataFileName);
-			
-			//status = ConfigDAQmxTasks(xVolts, yVolts, scanStructure);
-			//DAQmxStartTask(aoTaskHandle);
-		}
-*/
-			
+                //		-Old analog method (non photon-counting)
+                //retVal = LifetimeAcq(xVolts, yVolts, scanStruct,dataFileName);
 
-			//Turn AOM off briefly
+                //status = ConfigDAQmxTasks(xVolts, yVolts, scanStructure);
+                //DAQmxStartTask(aoTaskHandle);
+        }
+*/                
+                //New photon-counting method.  Acq happens on other computer with B&H board
+                for (int repeatCounter = 0; repeatCounter < TwoPhotonControl::LIFETIME_REPEAT_NUM ;repeatCounter++)
+                {
+                    sprintf(temp3," Point # %i ",k+repeatCounter); //Not really used since other computer saves file.  No need for setting name here
+                    retVal = AcqLifeTime1Point((float)xVolts, (float)yVolts,aomOnVoltage, temp3);
+                }
 
-			sprintf(temp3," Point # %i ",k);
-			retVal = AcqLifeTime1Point((float)xVolts, (float)yVolts,aomOnVoltage, temp3);
-
-		}
-		lastIndex=i+lastIndex;
+                //Read B&H lifetime acq files.  Have to assume a Dir and file structure
+                //---------NEEDS IMPLEMENTATION------------
+            }
+            lastIndex=i+lastIndex;
 	}
 
 	//Write out structure data to txt file.	
-
         //data2P->GenFileName(1);	//chan num 1?
-        strcpy(temp, acqThread->getFileName());
-
+        strcpy_s(temp, acqThread->getFileName());
 	nameLength = strlen(temp);
 	strncpy(txtFileName,temp,nameLength - 3);
 	txtFileName[nameLength-3]='\0';
-	strcat(txtFileName,"txt");
-
-	
+	strcat(txtFileName,"txt");	
 	outStream.open(txtFileName, std::ios::out);
         outStream << "Associated Image File Name " << temp << ".\n";
-	outStream << "Acquired " << totNumPts << " points.\n";
-	outStream << "Acquired " << numContours << " contours.\n";
+        outStream << "Num_Contours = " << numContours << "\n";
+        outStream << "Num_Points = " << totNumPts << "\n";
 
-	for(i = 1; i<=numContours; i++)
-	{	
-		tempContour = acqThread->getContourVision(i);
-		outStream << "Contour #" << i << " contains " << tempContour->structure.openContour->numPoints <<" points.\n";
-	}
 	lastIndex = 0;
-	for(j = 1; j<=numContours; j++)
+        for(j = 0; j < numContours; j++)
 	{	
-		tempContour = acqThread->getContourVision(j);
-		NumPts = tempContour->structure.openContour->numPoints;
-                outStream << "Lifetime Acq Number, X, Y, X_Volts, Y_Volts\n";
-		for(i = 0; i < NumPts; i++)
-		{
-                        outStream << LTAcqPts[i+lastIndex].getMeasRefNum() << " , ";
-			outStream << LTAcqPts[i+lastIndex].getX() << " , ";
-			outStream << LTAcqPts[i+lastIndex].getY() << " , ";
-			outStream << LTAcqPts[i+lastIndex].getXVolts() << " , ";
-			outStream << LTAcqPts[i+lastIndex].getYVolts() << "\n";
-		}
-		lastIndex = i + lastIndex;
-		//insert a -1 between contours
-		if(j!=numContours){}
-			outStream << "-1 , -1 , -1 , -1\n";
+            NumPts = 0;
+            tempContour =(NIVisionContourArray)[j];
+            if (tempContour->type == IMAQ_OPEN_CONTOUR)
+                NumPts = tempContour->structure.openContour->numPoints;
+            else if (tempContour->type == IMAQ_POINT)
+                NumPts = 1;
+
+            outStream << "\n<Contour #" << j <<">\n";
+            outStream << "Contour #" << j << " contains " << NumPts <<" points.\n";
+
+            outStream << "Acq#\t X\t Y\t X_Volts\t Y_Volts\n";
+            for(i = 0; i < NumPts; i++)
+            {
+                outStream << LTAcqPts[i+lastIndex].getMeasRefNum() << " \t ";
+                outStream << LTAcqPts[i+lastIndex].getX() << " \t ";
+                outStream << LTAcqPts[i+lastIndex].getY() << " \t ";
+                outStream << LTAcqPts[i+lastIndex].getXVolts() << " \t ";
+                outStream << LTAcqPts[i+lastIndex].getYVolts() << "\n";
+            }
+            lastIndex = i + lastIndex;
+            //insert a -1 between contours
+            //if(j != numContours)
+            //    outStream << "-1 , -1 , -1 , -1\n";
+            outStream << "</Contour #" << j <<">\n";
 	}
 	outStream.close();
 	
 	if (LTAcqPts)
 	{
-		delete [] LTAcqPts;
-		LTAcqPts = NULL;
+            delete [] LTAcqPts;
+            LTAcqPts = NULL;
 	}
-	return;
+
+        //Return checkboxed to nominal state
+        //set pulsed, nonContinuous AOM
+        emit setChkAomPulsed(false);
+        emit setChkAomCont(true);
+        emit sigChkSave(false);
+
+        return;
 
 Error:
 
 	if (LTAcqPts)
 	{
-		delete LTAcqPts;
-		LTAcqPts = NULL;
+            delete LTAcqPts;
+            LTAcqPts = NULL;
 	}
 	emit sendMessageForPopup("DAQmx Error","Problem Acquiring Lifetime Data!");
+
+        //Return checkboxed to nominal state
+        //set pulsed, nonContinuous AOM
+        emit setChkAomPulsed(false);
+        emit setChkAomCont(true);
+        emit sigChkSave(false);
 	
 }
 //Function: StopScanDrive
@@ -835,7 +887,7 @@ void TwoPhotonControl::AcqCallback(const QString & buttonName)
 		overScan = scanEng->getOverscan_LS();
 		
 		//Check to see if linescan is setup correctly
-		contourInfo = acqThread->getContourVision(1);
+                contourInfo = NIVisionContourArray[0];
 		if(!contourInfo)
 		{
 			AddLogItem("ERROR: Linescan: No line defined!");
@@ -930,7 +982,7 @@ void TwoPhotonControl::RunAcq(bool bContinuous, bool bLineScan)
 
 
 
-	acqThread->init(scanEng,acqEng,data2P,zStepEng,aomCtrl);
+        acqThread->init(scanEng,acqEng,data2P,zStepEng,aomCtrl);
 	acqThread->setLinescan(bLineScan);
 	acqThread->setContinuous(bContinuous);
 	acqThread->setLifetimeFov(false);
@@ -1093,7 +1145,7 @@ void TwoPhotonControl::savePointLoc(double x, double y, double z)
 	QTreeWidgetItem *entry;
 	ContourInfo2*	tempContour;
 
-	tempContour = acqThread->getContourVision(1);
+        tempContour = NIVisionContourArray[0];
 	
 	if(!tempContour)
 	{
@@ -1152,7 +1204,7 @@ void TwoPhotonControl::zPosUpdate(double zPos)
 void TwoPhotonControl::viewVisionTools()
 {	
 	//toggle window
-	acqThread->toggleTools();
+        emit sigToggleTools();
 }
 //Function: viewImageOne
 //Type: Slot
@@ -1160,7 +1212,7 @@ void TwoPhotonControl::viewVisionTools()
 void TwoPhotonControl::viewImageOne()
 {
 	//toggle window
-	acqThread->toggleImage1();
+        emit sigToggleImage1();
 }
 //Function: viewImageTwo
 //Type: Slot
@@ -1168,7 +1220,7 @@ void TwoPhotonControl::viewImageOne()
 void TwoPhotonControl::viewImageTwo()
 {
 	//toggle window
-	acqThread->toggleImage2();
+        emit sigToggleImage2();
 }
 //Function: goToLoc
 //Type: Slot
@@ -1750,6 +1802,7 @@ void TwoPhotonControl::updateDataControl(DataFile2P dataClass)
 
 	//Get values from GUI
 	data2P->setOutputDir(dataClass.getOutputDir());
+        data2P->setOutputDir2(dataClass.getOutputDir2());
 	data2P->Header.setB3DAcq(dataClass.Header.getB3DAcq());
 
 	//Update Header data used for saving
@@ -2113,14 +2166,6 @@ int TwoPhotonControl::AcqLifeTime1Point(float xVolt, float yVolt, double aomVolt
 	//Make sure AOM is off to begin with.
 	AomStop();  //Clears tasks and related memory
 
-	/*
-	//Create and setup Galvo Task
-	DAQmxErrChk(DAQmxCreateTask("GalvoTask",&GalvoTaskHandle));
-	DAQmxErrChk(DAQmxCreateAOVoltageChan(GalvoTaskHandle,scanEng->getXChan(),"",scanEng->getXMinVolts(), scanEng->getXMaxVolts(),DAQmx_Val_Volts,NULL));
-	DAQmxErrChk(DAQmxCreateAOVoltageChan(GalvoTaskHandle,scanEng->getYChan(),"",scanEng->getYMinVolts(), scanEng->getYMaxVolts(),DAQmx_Val_Volts,NULL));
-	DAQmxErrChk(DAQmxWriteAnalogF64(GalvoTaskHandle,1,1,10.0,DAQmx_Val_GroupByChannel,writeSamples,NULL,NULL));
-	DAQmxErrChk(DAQmxStartTask(GalvoTaskHandle)); //Moves galvos to correct position immediately.
-	*/
 
 	//Calculate voltage to park beam at
 	scanEng->setXHoldVolts((double)xVolt);
@@ -2132,7 +2177,8 @@ int TwoPhotonControl::AcqLifeTime1Point(float xVolt, float yVolt, double aomVolt
 	DAQmxErrChk(DAQmxCreateTask("TCSPCBoardTrigTask",&TCSPCBoardTrigTaskHandle));
 	DAQmxErrChk(DAQmxCreateDOChan (TCSPCBoardTrigTaskHandle, TCSPC_Trig_Channel,"",DAQmx_Val_ChanPerLine));
 	DAQmxErrChk(DAQmxWriteDigitalLines(TCSPCBoardTrigTaskHandle,1,1,10.0,DAQmx_Val_GroupByScanNumber ,&writeVal,&sampsWritten,NULL));
-	//For use with multifunction board
+
+        //For use with multifunction board
 	//DAQmxErrChk(DAQmxCreateAOVoltageChan(TCSPCBoardTrigTaskHandle, TCSPC_Trig_Channel,"",0.0, trigVal,DAQmx_Val_Volts,NULL));
 	//DAQmxErrChk(DAQmxWriteAnalogF64(TCSPCBoardTrigTaskHandle,1,1,10.0,DAQmx_Val_GroupByChannel,&trigVal,NULL,NULL));
 	
@@ -2167,7 +2213,8 @@ int TwoPhotonControl::AcqLifeTime1Point(float xVolt, float yVolt, double aomVolt
 	//Zero out the TCSPC start signal for next trigger event.
 	writeVal = uInt8(0);
 	DAQmxErrChk(DAQmxWriteDigitalLines(TCSPCBoardTrigTaskHandle,1,1,10.0,DAQmx_Val_GroupByChannel,&writeVal,&sampsWritten,NULL));
-	//trigVal = 0.0;
+
+        //trigVal = 0.0;
 	//DAQmxErrChk(DAQmxWriteAnalogF64(TCSPCBoardTrigTaskHandle,1,1,10.0,DAQmx_Val_GroupByChannel,&trigVal,NULL,NULL));
 
 	if (GalvoTaskHandle)
@@ -2271,4 +2318,26 @@ void TwoPhotonControl::evaluateAomIntensityScaling()
 void TwoPhotonControl::slotSendPort(int port)
 {
 	emit sigSendPort(port);
+}
+
+//Function: slotUpdateLocalNIVisionVars
+//Type: Slot
+//Description: Gets called when NIVision class changes any member vars
+void TwoPhotonControl::slotUpdateLocalNIVisionVars(NIVisionClass* niVisionVar)
+{
+
+    this->numContours = niVisionVar->numContours;
+    this->NIVisionCurr_ROI = niVisionVar->curr_roi;
+    this->NIVisionContourArray = (niVisionVar->contourInfoArray);
+
+    //Update vars needed in acqthread
+    this->acqThread->setNIVisionContourInfo((this->NIVisionContourArray)[0]);
+
+
+}
+
+void TwoPhotonControl::slotUpdateROIXY(Rect rect)
+{
+    return;
+
 }

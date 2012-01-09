@@ -24,7 +24,7 @@
 #include "nivision.h"
 #include "TwoPhotonControl.h"
 
-// static constants
+//  constants
 const double AcqEngine::PI = 3.1415926535897932384626433832795028841971;
 
 // default constructor
